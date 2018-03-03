@@ -1,0 +1,41 @@
+--- 
+- hosts: all
+  become: yes
+
+  tasks:
+    - name: Change root password to default
+      user:
+        name: 'root'
+        password: "{{ user_password | password_hash('sha512') }}"
+
+    - name: Add normal user
+      user:
+        name: "{{ user_name }}"
+        password: "{{ user_password | password_hash('sha512') }}"
+
+    - name: add ssh key
+      authorized_key:
+        user: "{{ user_name }}"
+        state: present
+        key: https://github.com/1davidmichael.keys
+
+    - name: Allow '{{ user_name }}' to have passwordless sudo
+      lineinfile:
+        dest: /etc/sudoers
+        state: present
+        line: '{{ user_name }} ALL=(ALL) NOPASSWD: ALL'
+        validate: 'visudo -cf %s'
+
+    - name: Restrict root access
+      lineinfile:
+        dest: /etc/ssh/sshd_config
+        state: present
+        regexp: "^PermitRootLogin.*"
+        line: "PermitRootLogin no"
+
+    - name: restart ssh
+      service:
+        name: sshd
+        state: restarted
+        enabled: yes
+
